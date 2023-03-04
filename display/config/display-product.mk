@@ -61,7 +61,7 @@ endif
 PRODUCT_COPY_FILES += $(DISPLAY_HAL_DIR)/config/qdcm_calib_data_bengal_default.xml:$(TARGET_COPY_OUT_VENDOR)/etc/qdcm_calib_data_td4330_v2_cmd_mode_dsi_truly_panel.xml
 PRODUCT_COPY_FILES += $(DISPLAY_HAL_DIR)/config/qdcm_calib_data_bengal_default.xml:$(TARGET_COPY_OUT_VENDOR)/etc/qdcm_calib_data_td4330_v2_video_mode_dsi_truly_panel.xml
 
-PRODUCT_PROPERTY_OVERRIDES += \
+PRODUCT_VENDOR_PROPERTIES += \
     persist.demo.hdmirotationlock=false \
     persist.sys.sf.color_saturation=1.0 \
     persist.sys.sf.color_mode=9 \
@@ -88,10 +88,10 @@ PRODUCT_PROPERTY_OVERRIDES += \
 
 # Enable offline rotator for Bengal, Monaco, Khaje.
 ifneq ($(filter bengal monaco khaje, $(TARGET_BOARD_PLATFORM)),$(TARGET_BOARD_PLATFORM))
-PRODUCT_PROPERTY_OVERRIDES += \
+PRODUCT_VENDOR_PROPERTIES += \
     vendor.display.disable_offline_rotator=1
 else
-PRODUCT_PROPERTY_OVERRIDES += \
+PRODUCT_VENDOR_PROPERTIES += \
     vendor.display.disable_rotator_ubwc=1 \
     vendor.display.normal_noc_efficiency_factor=0.85 \
     vendor.display.camera_noc_efficiency_factor=0.70 \
@@ -105,12 +105,12 @@ PRODUCT_PROPERTY_OVERRIDES += \
 endif
 
 ifeq ($(TARGET_BOARD_PLATFORM),monaco)
-PRODUCT_PROPERTY_OVERRIDES += \
+PRODUCT_VENDOR_PROPERTIES += \
     vendor.display.disable_layer_stitch=1
 endif
 
 ifeq ($(TARGET_BOARD_PLATFORM),kona)
-PRODUCT_PROPERTY_OVERRIDES += \
+PRODUCT_VENDOR_PROPERTIES += \
     debug.sf.enable_gl_backpressure=1 \
     debug.sf.enable_advanced_sf_phase_offset=1 \
     debug.sf.high_fps_late_sf_phase_offset_ns=-4000000 \
@@ -119,7 +119,7 @@ PRODUCT_PROPERTY_OVERRIDES += \
 endif
 
 ifeq ($(TARGET_BOARD_PLATFORM),lito)
-PRODUCT_PROPERTY_OVERRIDES += \
+PRODUCT_VENDOR_PROPERTIES += \
     debug.sf.high_fps_late_sf_phase_offset_ns=-4000000 \
     debug.sf.high_fps_early_phase_offset_ns=-4000000 \
     debug.sf.high_fps_early_gl_phase_offset_ns=-4000000 \
@@ -131,7 +131,7 @@ endif
 
 ifeq ($(TARGET_FWK_SUPPORTS_FULL_VALUEADDS), true)
   ifeq ($(TARGET_BOARD_PLATFORM),lito)
-  PRODUCT_PROPERTY_OVERRIDES += \
+  PRODUCT_VENDOR_PROPERTIES += \
       vendor.display.enable_perf_hint_large_comp_cycle=1
   endif
 endif
@@ -149,16 +149,16 @@ PRODUCT_DEFAULT_PROPERTY_OVERRIDES += ro.surface_flinger.max_virtual_display_dim
 
 ifneq (,$(filter userdebug eng, $(TARGET_BUILD_VARIANT)))
 # Recovery is enabled, logging is enabled
-PRODUCT_PROPERTY_OVERRIDES += \
+PRODUCT_VENDOR_PROPERTIES += \
     vendor.display.disable_hw_recovery_dump=0
 else
 # Recovery is enabled, logging is disabled
-PRODUCT_PROPERTY_OVERRIDES += \
+PRODUCT_VENDOR_PROPERTIES += \
     vendor.display.disable_hw_recovery_dump=1
 endif
 
 # Enable power async mode
-PRODUCT_PROPERTY_OVERRIDES +=  vendor.display.enable_async_powermode=1
+PRODUCT_VENDOR_PROPERTIES +=  vendor.display.enable_async_powermode=1
 # Soong Namespace
 SOONG_CONFIG_NAMESPACES += qtidisplay
 # Soong Keys
@@ -192,10 +192,10 @@ endif
 
 ifeq ($(TARGET_IS_HEADLESS), true)
     SOONG_CONFIG_qtidisplay_headless := true
-    PRODUCT_PROPERTY_OVERRIDES += \
+    PRODUCT_VENDOR_PROPERTIES += \
         vendor.display.enable_null_display=1
 else
-    PRODUCT_PROPERTY_OVERRIDES += \
+    PRODUCT_VENDOR_PROPERTIES += \
             vendor.display.enable_null_display=0
     #Modules that shouldn't be enabled in QMAA go here
     PRODUCT_PACKAGES += libdrmutils
