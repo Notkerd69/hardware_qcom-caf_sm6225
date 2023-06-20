@@ -2229,7 +2229,7 @@ void HWDeviceDRM::SetDGMCscV1(const HWCsc &dgm_csc, sde_drm_csc_v1 *csc_v1) {
   uint32_t i = 0;
   for (i = 0; i < MAX_CSC_MATRIX_COEFF_SIZE; i++) {
     csc_v1->ctm_coeff[i] = dgm_csc.ctm_coeff[i];
-    DLOGV_IF(kTagDriverConfig, " DGM csc_v1[%d] = %" PRId64, i, csc_v1->ctm_coeff[i]);
+    DLOGV_IF(kTagDriverConfig, " DGM csc_v1[%d] = %lld", i, csc_v1->ctm_coeff[i]);
   }
   for (i = 0; i < MAX_CSC_BIAS_SIZE; i++) {
     csc_v1->pre_bias[i] = dgm_csc.pre_bias[i];
