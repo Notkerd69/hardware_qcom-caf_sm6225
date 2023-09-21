@@ -69,6 +69,7 @@ cc_library_shared {
         "-DLOG_TAG=\"qdgralloc\"",
         "-D__QTI_DISPLAY_GRALLOC__",
         "-Wno-sign-conversion",
+        "-Wno-unused-parameter",
     ],
     srcs: [
         "gr_allocator.cpp",
