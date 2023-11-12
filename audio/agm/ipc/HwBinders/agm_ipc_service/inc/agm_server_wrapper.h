@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -158,6 +158,10 @@ struct AGM : public IAGM {
                                 uint32_t size,
                                 const hidl_vec<uint8_t>& buff,
                                 ipc_agm_session_get_params_cb _hidl_cb) override;
+    Return<void> ipc_agm_get_params_from_acdb_tunnel(
+                 const hidl_vec<uint8_t>& payload,
+                 uint32_t size,
+                 ipc_agm_get_params_from_acdb_tunnel_cb _hidl_cb) override;
     Return<int32_t> ipc_agm_aif_set_params(uint32_t aif_id,
                                            const hidl_vec<uint8_t>& payload,
                                            uint32_t size) override;
@@ -196,7 +200,6 @@ struct AGM : public IAGM {
     Return<int32_t> ipc_agm_session_stop(uint64_t hndl) override;
     Return<int32_t> ipc_agm_session_pause(uint64_t hndl) override;
     Return<int32_t> ipc_agm_session_flush(uint64_t hndl) override;
-    Return<int32_t> ipc_agm_sessionid_flush(uint32_t session_id) override;
     Return<int32_t> ipc_agm_session_resume(uint64_t hndl) override;
     Return<int32_t> ipc_agm_session_suspend(uint64_t hndl) override;
     Return<void> ipc_agm_session_read(uint64_t hndl, uint32_t count,

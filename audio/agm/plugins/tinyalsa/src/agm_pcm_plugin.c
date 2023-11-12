@@ -1,6 +1,6 @@
 /*
 ** Copyright (c) 2019, 2021 The Linux Foundation. All rights reserved.
-** Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+** Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
 **
 ** Redistribution and use in source and binary forms, with or without
 ** modification, are permitted provided that the following conditions are
@@ -80,6 +80,7 @@ struct pcm_plugin_pos_buf_info {
     snd_pcm_uframes_t avail_min; /* RW: min available frames for wakeup */
     uint32_t wall_clk_msw;
     uint32_t wall_clk_lsw;
+    uint32_t frame_counter;
 };
 
 struct agm_mmap_buffer_port {
@@ -304,6 +305,7 @@ static int agm_pcm_plugin_get_shared_pos(struct pcm_plugin_pos_buf_info *pos_buf
         if (frame_cnt1 != frame_cnt2)
             continue;
 
+        pos_buf->frame_counter = frame_cnt1;
         return 0;
     }
 
@@ -318,9 +320,11 @@ static int agm_pcm_plugin_update_hw_ptr(struct agm_pcm_priv *priv)
     uint32_t read_index, wall_clk_msw, wall_clk_lsw;
     int64_t delta_wall_clk_us = 0;
     uint32_t delta_wall_clk_frames = 0;
+    uint64_t sub_res = 0;
     int ret = 0;
     uint32_t period_size = priv->period_size; /** in frames */
     uint32_t crossed_boundary = 0;
+    uint32_t old_frame_counter = priv->pos_buf->frame_counter;
 
     do {
         ret = agm_pcm_plugin_get_shared_pos(priv->pos_buf,
@@ -339,9 +343,10 @@ static int agm_pcm_plugin_update_hw_ptr(struct agm_pcm_priv *priv)
             uint64_t dsp_wall_clk =  (((uint64_t)wall_clk_msw) << 32 | wall_clk_lsw);
             uint64_t cached_wall_clk = (((uint64_t)priv->pos_buf->wall_clk_msw) << 32 |
                                          priv->pos_buf->wall_clk_lsw);
-            //Compute delta only if diff is greater than zero
+            // Compute delta only if diff is greater than zero
             if (dsp_wall_clk > cached_wall_clk) {
-                delta_wall_clk_us = (int64_t)(dsp_wall_clk - cached_wall_clk);
+                __builtin_usubl_overflow(dsp_wall_clk,cached_wall_clk,&sub_res);
+                delta_wall_clk_us = (int64_t)sub_res;
             }
         }
         // Identify the number of times of shared buffer length that the
@@ -380,8 +385,11 @@ static int agm_pcm_plugin_update_hw_ptr(struct agm_pcm_priv *priv)
         }
 
         priv->pos_buf->hw_ptr = new_hw_ptr;
-        priv->pos_buf->wall_clk_lsw = wall_clk_lsw;
-        priv->pos_buf->wall_clk_msw = wall_clk_msw;
+        // cache wall clk only when there's data update in shared buffer
+        if (priv->pos_buf->frame_counter != old_frame_counter) {
+            priv->pos_buf->wall_clk_lsw = wall_clk_lsw;
+            priv->pos_buf->wall_clk_msw = wall_clk_msw;
+        }
         clock_gettime(CLOCK_MONOTONIC, &priv->pos_buf->tstamp);
     }
 

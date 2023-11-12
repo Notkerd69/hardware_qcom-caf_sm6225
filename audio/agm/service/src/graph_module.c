@@ -59,6 +59,39 @@
  * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+** Changes from Qualcomm Innovation Center are provided under the following license:
+** Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+**
+** Redistribution and use in source and binary forms, with or without
+** modification, are permitted (subject to the limitations in the
+** disclaimer below) provided that the following conditions are met:
+**
+**   * Redistributions of source code must retain the above copyright
+**     notice, this list of conditions and the following disclaimer.
+**
+**   * Redistributions in binary form must reproduce the above
+**     copyright notice, this list of conditions and the following
+**     disclaimer in the documentation and/or other materials provided
+**     with the distribution.
+**
+**   * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+**     contributors may be used to endorse or promote products derived
+**     from this software without specific prior written permission.
+**
+** NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+** GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+** HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+** WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+** MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+** IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+** ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+** DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+** GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+** INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+** IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+** OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+** IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #define LOG_TAG "AGM: graph_module"
@@ -215,7 +248,7 @@ static int get_media_bit_width(struct session_obj *sess_obj,
     case AGM_FORMAT_MP3:
     case AGM_FORMAT_AAC:
     default:
-         break;
+        break;
     }
     AGM_LOGD("%s: bit width: %d", __func__, bit_width);
 
@@ -711,10 +744,11 @@ int configure_hw_ep(struct module_info *mod,
     int ret = 0;
     struct device_obj *dev_obj = mod->dev_obj;
 
-    if(dev_obj->hw_ep_info.intf == PCM_RT_PROXY || dev_obj->hw_ep_info.intf == PCM_DUMMY) {
+    if ((dev_obj->hw_ep_info.intf == PCM_RT_PROXY) ||
+        (dev_obj->hw_ep_info.intf == PCM_DUMMY) ||
+        (dev_obj->hw_ep_info.intf == BTFM_PROXY)) {
         AGM_LOGD("no ep media config for %d\n",  dev_obj->hw_ep_info.intf);
-    }
-    else {
+    } else {
         ret = configure_hw_ep_media_config(mod, graph_obj);
         if (ret) {
             AGM_LOGE("hw_ep_media_config failed %d", ret);
@@ -739,19 +773,15 @@ int configure_hw_ep(struct module_info *mod,
          break;
     case DISPLAY_PORT:
     case USB_AUDIO:
-        AGM_LOGD("no ep configuration for %d\n",  dev_obj->hw_ep_info.intf);
-        break;
     case PCM_RT_PROXY:
-        AGM_LOGD("no ep configuration for %d\n",  dev_obj->hw_ep_info.intf);
-        break;
     case AUDIOSS_DMA:
-        AGM_LOGD("no ep configuration for %d\n",  dev_obj->hw_ep_info.intf);
-        break;
     case PCM_DUMMY:
+    case BTFM_PROXY:
         AGM_LOGD("no ep configuration for %d\n",  dev_obj->hw_ep_info.intf);
         break;
     default:
          AGM_LOGE("hw intf %d not enabled yet", dev_obj->hw_ep_info.intf);
+         ret = -EINVAL;
          break;
     }
     return ret;
@@ -1280,10 +1310,20 @@ int configure_encoder_output_media_format(struct module_info *mod,
         sizeof(struct param_id_encoder_output_config_t);
     size_t size_apm_and_encoder_config = size_apm_module + size_encoder_config;
     AGM_LOGV("Enter");
+
+    /**
+     * For Encoder module, PARAM_ID_ENCODER_OUTPUT_CONFIG
+     * */
+
+    /**
+     * only TX session, hence in media config
+     * */
     switch (sess_obj->in_media_config.format) {
         case AGM_FORMAT_AAC: {
             size_t size_aac_cfg = sizeof(struct aac_enc_cfg_t);
             payload_size = size_apm_and_encoder_config + size_aac_cfg;
+
+            /*ensure that the payloadszie is byte multiple atleast*/
             ALIGN_PAYLOAD(payload_size, 8);
             payload = (uint8_t *)calloc(1, payload_size);
             if (!payload) {
@@ -1291,27 +1331,32 @@ int configure_encoder_output_media_format(struct module_info *mod,
                 ret = -ENOMEM;
                 goto err;
             }
+
             struct param_id_encoder_output_config_t enc_out_conf_param;
             enc_out_conf_param.data_format = AGM_DATA_FORMAT_FIXED_POINT;
             enc_out_conf_param.fmt_id = MEDIA_FMT_AAC;
             enc_out_conf_param.payload_size = size_aac_cfg;
             memcpy(payload + size_apm_module, &enc_out_conf_param,
                    size_encoder_config);
+
             memcpy(payload + size_apm_and_encoder_config,
                    &(sess_obj->stream_config.codec.aac_enc.enc_cfg),
                    size_aac_cfg);
             break;
         }
+
         default:
             ret = -EINVAL;
             goto err;
             break;
     }
+
     header = (struct apm_module_param_data_t *)(payload);
     header->module_instance_id = mod->miid;
     header->param_id = PARAM_ID_ENCODER_OUTPUT_CONFIG;
     header->error_code = 0x0;
     header->param_size = sizeof(struct param_id_encoder_output_config_t);
+
     ret = gsl_set_custom_config(graph_obj->graph_handle, payload, payload_size);
     if (ret != 0) {
         ret = ar_err_get_lnx_err_code(ret);
@@ -1328,12 +1373,17 @@ int configure_encoder_output_media_format(struct module_info *mod,
         free(payload);
         payload = NULL;
     }
+
+    /**
+     * For Encoder Module, PARAM_ID_ENC_BITRATE
+     * */
     switch (sess_obj->in_media_config.format) {
         case AGM_FORMAT_AAC: {
             struct param_id_enc_bitrate_param_t *bitrate_param = NULL;
             size_t bitrate_param_size =
                 sizeof(struct param_id_enc_bitrate_param_t);
             payload_size = size_apm_module + bitrate_param_size;
+            /*ensure that the payloadszie is byte multiple atleast*/
             ALIGN_PAYLOAD(payload_size, 8);
             payload = (uint8_t *)calloc(1, payload_size);
             if (!payload) {
@@ -1341,6 +1391,7 @@ int configure_encoder_output_media_format(struct module_info *mod,
                 ret = -ENOMEM;
                 goto err;
             }
+
             bitrate_param =
                 (struct param_id_enc_bitrate_param_t *)(payload +
                                                         size_apm_module);
@@ -1348,6 +1399,7 @@ int configure_encoder_output_media_format(struct module_info *mod,
                 sess_obj->stream_config.codec.aac_enc.aac_bit_rate;
             break;
         }
+
         default:
             ret = -EINVAL;
             goto err;
@@ -1358,6 +1410,7 @@ int configure_encoder_output_media_format(struct module_info *mod,
     header->param_id = PARAM_ID_ENC_BITRATE;
     header->error_code = 0x0;
     header->param_size = sizeof(struct param_id_enc_bitrate_param_t);
+
     ret = gsl_set_custom_config(graph_obj->graph_handle, payload, payload_size);
     if (ret != 0) {
         ret = ar_err_get_lnx_err_code(ret);
@@ -1373,6 +1426,7 @@ int configure_encoder_output_media_format(struct module_info *mod,
         free(payload);
         payload = NULL;
     }
+
 err:
 done:
     if (payload) {
@@ -1382,9 +1436,10 @@ done:
     AGM_LOGV("Exit: %d", ret);
     return ret;
 }
-/*
+
+/**
  *Configure placeholder encoder
- */
+*/
 int configure_placeholder_enc(struct module_info *mod,
                               struct graph_obj *graph_obj)
 {
@@ -1400,6 +1455,7 @@ int configure_placeholder_enc(struct module_info *mod,
         return -EINVAL;
     }
     sess_obj = graph_obj->sess_obj;
+
     /* configure only in case of compress capture */
     if (sess_obj->stream_config.sess_mode == AGM_SESSION_COMPRESS &&
         sess_obj->stream_config.dir == TX) {
@@ -1717,12 +1773,14 @@ int configure_rd_shared_mem_ep(struct module_info *mod,
     size_t payload_size = 0;
 
     AGM_LOGD("Enter");
+
     /*
-     *Note: read shared mem ep is configured only in case of non-tunnel
+     *Note: read shared mem ep is configured in case of non-tunnel
      *decode sessions where the client has configured the session with
      *AGM_SESSION_FLAG_INBAND_SRCM flag
      *In case of non-tunnel encode sessions, we set the num_frames_per_buff cfg
      *as a part of calibration itself.
+     *In case of compress capture case also , read shared mem ep is configured.
      */
     if (!(sess_obj->stream_config.sess_flags & AGM_SESSION_FLAG_INBAND_SRCM) &&
         !(sess_obj->stream_config.sess_mode == AGM_SESSION_COMPRESS))
@@ -1760,21 +1818,23 @@ int configure_rd_shared_mem_ep(struct module_info *mod,
      */
     if (sess_obj->stream_config.sess_mode == AGM_SESSION_NON_TUNNEL) {
         rd_sh_mem_cfg->metadata_control_flags = 0x2; /*ENABLE_MEDIA_FORMAT_MD*/
-    if (is_format_pcm(sess_obj->in_media_config.format))
-       rd_sh_mem_cfg->num_frames_per_buffer = 0x0; /*As many frames as possible*/
-    else
-       /*TODO:This is encode usecase hence ideally client wont enable SRCM event
-        *Even if the client wants it enabled, then we configure 1 frame every for
-        *every read call;
-        */
-       rd_sh_mem_cfg->num_frames_per_buffer = 0x1;
+        if (is_format_pcm(sess_obj->in_media_config.format))
+            rd_sh_mem_cfg->num_frames_per_buffer = 0x0; /*As many frames as possible*/
+        else
+        /*TODO:This is encode usecase hence ideally client wont enable SRCM event
+            *Even if the client wants it enabled, then we configure 1 frame every for
+            *every read call;
+            */
+            rd_sh_mem_cfg->num_frames_per_buffer = 0x1;
     }
 
+    /* For compress capture */
     if (sess_obj->stream_config.sess_mode == AGM_SESSION_COMPRESS &&
         sess_obj->stream_config.dir == TX) {
         rd_sh_mem_cfg->num_frames_per_buffer = 0x1;
         AGM_LOGD("compress capture uses 1 frame per buffer");
     }
+
 
     ret = gsl_set_custom_config(graph_obj->graph_handle, payload, payload_size);
     if (ret != 0) {

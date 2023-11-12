@@ -1,6 +1,5 @@
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -28,38 +27,10 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
+
 #define LOG_TAG "agm_client_wrapper"
 
 #include <cutils/list.h>
@@ -89,11 +60,7 @@ static bool agm_server_died = false;
 static pthread_mutex_t agmclient_init_lock = PTHREAD_MUTEX_INITIALIZER;
 static android::sp<IAGM> agm_client = NULL;
 static sp<server_death_notifier> Server_death_notifier = NULL;
-#ifdef AGM_HIDL_ENABLED
 sp<IAGMCallback> ClbkBinder = NULL;
-#else
-static bool is_cb_registered = false;
-#endif
 static list_declare(client_clbk_data_list);
 static pthread_mutex_t clbk_data_list_lock = PTHREAD_MUTEX_INITIALIZER;
 static std::mutex agm_session_register_cb_mutex;
@@ -110,8 +77,6 @@ void server_death_notifier::serviceDied(uint64_t cookie,
     agm_server_died = true;
     if (cb_ != NULL)
         cb_(cookie_);
-    // We exit the client process here, so that it also can restart
-    // leading to a fresh start on both the sides.
 }
 
 android::sp<IAGM> get_agm_server() {
@@ -318,16 +283,6 @@ int agm_session_flush(uint64_t handle){
     return -EINVAL;
 }
 
-int agm_sessionid_flush(uint32_t session_id)
-{
-    ALOGV("%s called with session id = %d", __func__, session_id);
-    if (!agm_server_died) {
-        android::sp<IAGM> agm_client = get_agm_server();
-        return agm_client->ipc_agm_sessionid_flush(session_id);
-    }
-    return -EINVAL;
-}
-
 int agm_session_resume(uint64_t handle){
     ALOGV("%s called with handle = %llx \n", __func__, (unsigned long long) handle);
     if (!agm_server_died) {
@@ -465,6 +420,10 @@ int agm_get_aif_info_list(struct aif_info *aif_list, size_t *num_aif_info) {
         uint32_t num = (uint32_t) *num_aif_info;
         int ret = -EINVAL;
         android::sp<IAGM> agm_client = get_agm_server();
+
+        if (!agm_client) {
+            goto error_exit_fn;
+        }
         auto status = agm_client->ipc_agm_get_aif_info_list(num,[&](int32_t _ret,
                                             hidl_vec<AifInfo> aif_list_ret_hidl,
                                             uint32_t num_aif_info_hidl )
@@ -489,6 +448,7 @@ int agm_get_aif_info_list(struct aif_info *aif_list, size_t *num_aif_info) {
         }
         return ret;
     }
+error_exit_fn:
     return -EINVAL;
 }
 
@@ -656,6 +616,37 @@ int agm_set_params_to_acdb_tunnel(void *payload, size_t size)
     return -EINVAL;
 }
 
+int agm_get_params_from_acdb_tunnel(void *payload, size_t *size)
+{
+    ALOGV("%s: enter\n", __func__);
+    if (!agm_server_died) {
+        android::sp<IAGM> agm_client = get_agm_server();
+        uint32_t size_hidl = (uint32_t) *size;
+        int ret = 0;
+        hidl_vec<uint8_t> payload_hidl;
+        payload_hidl.resize(size_hidl);
+        memcpy(payload_hidl.data(), payload, size_hidl);
+        agm_client->ipc_agm_get_params_from_acdb_tunnel(
+                            payload_hidl,
+                            size_hidl,
+                            [&](int32_t _ret,
+                                hidl_vec<uint8_t> payload_ret,
+                                uint32_t size_ret)
+                            { ret = _ret;
+                              if (ret != -ENOMEM) {
+                                  if (payload != NULL)
+                                      memcpy(payload, payload_ret.data(), size_ret);
+                                  else if (size_ret == 0)
+                                      ALOGE("%s : received NULL Payload",__func__);
+                                  *size = (size_t) size_ret;
+                              }
+                            });
+        return ret;
+    }
+
+    return -EINVAL;
+}
+
 int agm_session_register_for_events(uint32_t session_id,
                                           struct agm_event_reg_cfg *evt_reg_cfg)
 {
@@ -720,23 +711,9 @@ int agm_session_register_cb(uint32_t session_id, agm_event_cb cb,
            session_id, evt_type, client_data);
     int32_t ret = 0;
     if (!agm_server_died) {
-#ifndef AGM_HIDL_ENABLED
-        sp<IAGMCallback> ClbkBinder = NULL;
-#endif
         ClntClbk *cl_clbk_data = NULL;
         uint64_t cl_clbk_data_add = 0;
         android::sp<IAGM> agm_client = get_agm_server();
-#ifndef AGM_HIDL_ENABLED
-        if (!is_cb_registered) {
-            ClbkBinder = new AGMCallback();
-            ret = agm_client->ipc_agm_client_register_callback(ClbkBinder);
-            if (ret) {
-                ALOGE("Client callback registration failed");
-                return ret;
-            }
-            is_cb_registered = true;
-        }
-#else //AGM_HIDL_ENABLED
         if (!ClbkBinder)
             ClbkBinder = new AGMCallback();
         ret = agm_client->ipc_agm_client_register_callback(ClbkBinder);
@@ -744,7 +721,6 @@ int agm_session_register_cb(uint32_t session_id, agm_event_cb cb,
             ALOGE("Client callback registration failed");
             return ret;
         }
-#endif
         if (cb != NULL) {
             cl_clbk_data = new ClntClbk(session_id, cb, evt_type, client_data);
             struct client_cb_data *cb_data = (struct client_cb_data *)calloc(1, sizeof(struct client_cb_data));

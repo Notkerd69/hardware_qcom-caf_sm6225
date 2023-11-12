@@ -12,7 +12,6 @@ LOCAL_SRC_FILES     := src/agm_pcm_plugin.c
 
 LOCAL_HEADER_LIBRARIES := \
     libagm_headers \
-    libarpal_headers \
     libarosal_headers
 
 LOCAL_SHARED_LIBRARIES := \
@@ -54,7 +53,6 @@ LOCAL_SRC_FILES     := src/agm_mixer_plugin.c
 
 LOCAL_HEADER_LIBRARIES := \
     libagm_headers \
-    libarpal_headers \
     libarosal_headers
 
 LOCAL_SHARED_LIBRARIES := \
@@ -92,15 +90,14 @@ LOCAL_MODULE        := libagm_compress_plugin
 LOCAL_MODULE_OWNER  := qti
 LOCAL_MODULE_TAGS   := optional
 LOCAL_VENDOR_MODULE := true
-ifeq ($(TARGET_PREBUILT_KERNEL),)
+
 LOCAL_C_INCLUDES    += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
 LOCAL_ADDITIONAL_DEPENDENCIES += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
-endif
+
 LOCAL_SRC_FILES     := src/agm_compress_plugin.c
 
 LOCAL_HEADER_LIBRARIES := \
     libagm_headers \
-    libarpal_headers \
     libarosal_headers
 
 LOCAL_SHARED_LIBRARIES := \
@@ -112,9 +109,9 @@ LOCAL_SHARED_LIBRARIES := \
 
 LOCAL_CFLAGS += -Wno-format -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function
 
-#if android version is R, refer to qtitinyxx otherwise use upstream ones
-#This assumes we would be using AR code only for Android R and subsequent versions.
-ifneq ($(filter 11 R, $(PLATFORM_VERSION)),)
+# Use flag based selection to use QTI vs open source tinycompress project
+
+ifeq ($(TARGET_USES_QTI_TINYCOMPRESS),true)
 LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/tinyalsa/include
 LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/tinycompress/include
 LOCAL_SHARED_LIBRARIES += libqti-tinyalsa\

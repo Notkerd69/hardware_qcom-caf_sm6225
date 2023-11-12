@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  * This code is used under the BSD license.
  *
  * BSD LICENSE
@@ -54,10 +55,6 @@
  * along with this program; if not, write to
  * the Free Software Foundation, Inc.,
  * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- *
- * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 #include <stdint.h>
 #include <linux/types.h>
@@ -474,13 +471,13 @@ static void sig_handler(int signum __attribute__ ((unused)))
 
 int main(int argc, char **argv)
 {
-    char *file;
+    char *file = NULL;
     unsigned long buffer_size = 0;
     unsigned int card = 0, device = 0, frag = 0, length = 0;
     unsigned int rate = DEFAULT_RATE, channels = DEFAULT_CHANNELS;
     unsigned int bits = 16;
     unsigned int format = DEFAULT_FORMAT;
-    char* intf_name;
+    char* intf_name = NULL;
     int ret = 0;
     unsigned int devicepp_kv = DEVICEPP_TX_AUDIO_FLUENCE_SMECNS;
     unsigned int stream_kv = 0;

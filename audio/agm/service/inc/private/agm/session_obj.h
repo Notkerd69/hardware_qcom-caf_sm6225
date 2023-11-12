@@ -25,10 +25,6 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #ifndef _SESSION_OBJ_H_
@@ -115,7 +111,6 @@ int session_obj_init();
 int session_obj_deinit();
 int session_obj_valid_check(uint64_t hndl);
 int session_obj_get(int session_id, struct session_obj **sess_obj);
-struct session_obj *session_obj_retrieve_from_pool(uint32_t session_id);
 int session_obj_open(uint32_t session_id,
                      enum agm_session_mode sess_mode,
                      struct session_obj **sess_obj);

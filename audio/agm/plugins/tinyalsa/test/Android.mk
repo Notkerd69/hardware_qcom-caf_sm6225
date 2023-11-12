@@ -22,11 +22,6 @@ LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/tinyalsa/include
 LOCAL_SHARED_LIBRARIES += libqti-tinyalsa
 else
 LOCAL_SHARED_LIBRARIES += libtinyalsa
-LOCAL_C_INCLUDES += \
-    $(call project-path-for,qcom-audio)/agm/ipc/HwBinders/agm_ipc_client/inc \
-    $(call project-path-for,qcom-audio)/agm/ipc/HwBinders/agm_ipc_service/inc/ \
-    $(call project-path-for,qcom-audio)/pal/ipc/HwBinders/pal_ipc_server/inc/ \
-    $(call project-path-for,qcom-audio)/pal/session/inc/
 endif
 
 
@@ -60,11 +55,6 @@ LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/tinyalsa/include
 LOCAL_SHARED_LIBRARIES += libqti-tinyalsa
 else
 LOCAL_SHARED_LIBRARIES += libtinyalsa
-LOCAL_C_INCLUDES += \
-    $(call project-path-for,qcom-audio)/agm/ipc/HwBinders/agm_ipc_client/inc \
-    $(call project-path-for,qcom-audio)/agm/ipc/HwBinders/agm_ipc_service/inc/ \
-    $(call project-path-for,qcom-audio)/pal/ipc/HwBinders/pal_ipc_server/inc/ \
-    $(call project-path-for,qcom-audio)/pal/session/inc/
 endif
 
 LOCAL_SHARED_LIBRARIES += \
@@ -95,11 +85,6 @@ LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/tinyalsa/include
 LOCAL_SHARED_LIBRARIES += libqti-tinyalsa
 else
 LOCAL_SHARED_LIBRARIES += libtinyalsa
-LOCAL_C_INCLUDES += \
-    $(call project-path-for,qcom-audio)/agm/ipc/HwBinders/agm_ipc_client/inc \
-    $(call project-path-for,qcom-audio)/agm/ipc/HwBinders/agm_ipc_service/inc/ \
-    $(call project-path-for,qcom-audio)/pal/ipc/HwBinders/pal_ipc_server/inc/ \
-    $(call project-path-for,qcom-audio)/pal/session/inc/
 endif
 
 LOCAL_SHARED_LIBRARIES += \
@@ -131,11 +116,6 @@ LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/tinyalsa/include
 LOCAL_SHARED_LIBRARIES += libqti-tinyalsa
 else
 LOCAL_SHARED_LIBRARIES += libtinyalsa
-LOCAL_C_INCLUDES += \
-    $(call project-path-for,qcom-audio)/agm/ipc/HwBinders/agm_ipc_client/inc \
-    $(call project-path-for,qcom-audio)/agm/ipc/HwBinders/agm_ipc_service/inc/ \
-    $(call project-path-for,qcom-audio)/pal/ipc/HwBinders/pal_ipc_server/inc/ \
-    $(call project-path-for,qcom-audio)/pal/session/inc/
 endif
 
 LOCAL_SHARED_LIBRARIES += \
@@ -153,10 +133,10 @@ LOCAL_VENDOR_MODULE := true
 LOCAL_CFLAGS        += -Wno-unused-parameter -Wno-unused-result
 LOCAL_CFLAGS        += -Wno-unused-variable
 LOCAL_CFLAGS        += -DBACKEND_CONF_FILE=\"/vendor/etc/backend_conf.xml\"
-ifeq ($(TARGET_PREBUILT_KERNEL),)
+
 LOCAL_C_INCLUDES    += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
 LOCAL_ADDITIONAL_DEPENDENCIES += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
-endif
+
 LOCAL_SRC_FILES     := agmcompressplay.c
 
 LOCAL_HEADER_LIBRARIES := \
@@ -164,20 +144,15 @@ LOCAL_HEADER_LIBRARIES := \
     libarpal_headers \
     libacdb_headers
 
-#if android version is R, refer to qtitinyxx otherwise use upstream ones
-#This assumes we would be using AR code only for Android R and subsequent versions.
-ifneq ($(filter 11 R, $(PLATFORM_VERSION)),)
+# Use flag based selection to use QTI vs open source tinycompress project
+
+ifeq ($(TARGET_USES_QTI_TINYCOMPRESS),true)
 LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/tinyalsa/include
 LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/tinycompress/include
 LOCAL_SHARED_LIBRARIES += libqti-tinyalsa\
                           libqti-tinycompress
 else
-LOCAL_C_INCLUDES += \
-    $(TOP)/external/tinycompress/include \
-    $(call project-path-for,qcom-audio)/agm/ipc/HwBinders/agm_ipc_client/inc \
-    $(call project-path-for,qcom-audio)/agm/ipc/HwBinders/agm_ipc_service/inc/ \
-    $(call project-path-for,qcom-audio)/pal/ipc/HwBinders/pal_ipc_server/inc/ \
-    $(call project-path-for,qcom-audio)/pal/session/inc/
+LOCAL_C_INCLUDES += $(TOP)/external/tinycompress/include
 LOCAL_SHARED_LIBRARIES += libtinyalsa\
                           libtinycompress
 endif
@@ -197,10 +172,10 @@ LOCAL_VENDOR_MODULE := true
 LOCAL_CFLAGS        += -Wno-unused-parameter -Wno-unused-result
 LOCAL_CFLAGS        += -Wno-incompatible-pointer-types
 LOCAL_CFLAGS        += -DBACKEND_CONF_FILE=\"/vendor/etc/backend_conf.xml\"
-ifeq ($(TARGET_PREBUILT_KERNEL),)
+
 LOCAL_C_INCLUDES    += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
 LOCAL_ADDITIONAL_DEPENDENCIES += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
-endif
+
 LOCAL_SRC_FILES     := agmcompresscap.c
 
 LOCAL_HEADER_LIBRARIES := \
@@ -208,20 +183,15 @@ LOCAL_HEADER_LIBRARIES := \
     libarpal_headers \
     libacdb_headers
 
-#if android version is R, refer to qtitinyxx otherwise use upstream ones
-#This assumes we would be using AR code only for Android R and subsequent versions.
-ifneq ($(filter 11 R, $(PLATFORM_VERSION)),)
+# Use flag based selection to use QTI vs open source tinycompress project
+
+ifeq ($(TARGET_USES_QTI_TINYCOMPRESS),true)
 LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/tinyalsa/include
 LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/tinycompress/include
 LOCAL_SHARED_LIBRARIES += libqti-tinyalsa\
                           libqti-tinycompress
 else
-LOCAL_C_INCLUDES += \
-    $(TOP)/external/tinycompress/include \
-    $(call project-path-for,qcom-audio)/agm/ipc/HwBinders/agm_ipc_client/inc \
-    $(call project-path-for,qcom-audio)/agm/ipc/HwBinders/agm_ipc_service/inc/ \
-    $(call project-path-for,qcom-audio)/pal/ipc/HwBinders/pal_ipc_server/inc/ \
-    $(call project-path-for,qcom-audio)/pal/session/inc/
+LOCAL_C_INCLUDES += $(TOP)/external/tinycompress/include
 LOCAL_SHARED_LIBRARIES += libtinyalsa\
                           libtinycompress
 endif
@@ -256,11 +226,6 @@ LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/tinyalsa/include
 LOCAL_SHARED_LIBRARIES += libqti-tinyalsa
 else
 LOCAL_SHARED_LIBRARIES += libtinyalsa
-LOCAL_C_INCLUDES += \
-    $(call project-path-for,qcom-audio)/agm/ipc/HwBinders/agm_ipc_client/inc \
-    $(call project-path-for,qcom-audio)/agm/ipc/HwBinders/agm_ipc_service/inc/ \
-    $(call project-path-for,qcom-audio)/pal/ipc/HwBinders/pal_ipc_server/inc/ \
-    $(call project-path-for,qcom-audio)/pal/session/inc/
 endif
 
 LOCAL_SHARED_LIBRARIES += \

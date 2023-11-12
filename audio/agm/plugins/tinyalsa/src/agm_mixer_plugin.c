@@ -84,10 +84,12 @@ static char *amp_be_ctl_name_extn[] = {
 
 enum {
     STATIC_CTL_SET_ACDB_TUNNEL = 0,
+    STATIC_CTL_GET_ACDB_TUNNEL,
 };
 
 static char *static_acdb_ctl_name_extn[] = {
     "setACDBTunnel",
+    "getACDBTunnel",
 };
 
 enum {
@@ -142,19 +144,17 @@ static char *amp_pcm_tx_ctl_names[] = {
     "loopback",
     "echoReference",
     "bufTimestamp",
-    /* Add new ones here, be sure to update enum as well */
+    /* Add new ones here, be sue to update enum as well */
 };
 
 enum {
     PCM_RX_CTL_NAME_SIDETONE = 0,
     PCM_RX_CTL_NAME_DATAPATH_PARAMS,
-    PCM_RX_CTL_NAME_FLUSH,
 };
 /* strings should be at the index as per the enum */
 static char *amp_pcm_rx_ctl_names[] = {
     "sidetone",
     "datapathParams",
-    "flush",
 };
 
 struct amp_get_param_info {
@@ -740,8 +740,8 @@ static int amp_get_acdb_info(struct amp_priv *amp_priv)
     void **pcm_node_list = NULL;
     int total_pcms, ret = 0;
 
-    total_pcms = 1;
-    acdb_adi->count = 1;
+    total_pcms = 2;
+    acdb_adi->count = 2;
     pcm_node_list = calloc(total_pcms, sizeof(*pcm_node_list));
     if (!pcm_node_list) {
         AGM_LOGE("%s: alloc for pcm_node_list failed\n", __func__);
@@ -1316,6 +1316,72 @@ static int amp_pcm_set_acdb_tunnel_put(struct mixer_plugin *plugin,
     return ret;
 }
 
+static int amp_pcm_get_acdb_tunnel_get(struct mixer_plugin *plugin ,
+                struct snd_control *ctl, struct snd_ctl_tlv *tlv)
+{
+    struct amp_dev_info *pcm_adi = ctl->private_data;
+    struct amp_dev_info *be_adi;
+    void *payload;
+    int pcm_idx = ctl->private_value;
+    int ret = 0;
+    size_t tlv_size;
+    int pcm_control, be_idx = -1;
+
+    AGM_LOGV("%s: enter\n", __func__);
+
+    if (!pcm_adi->get_param_info[pcm_idx].get_param_payload) {
+        AGM_LOGE("%s: put() for getParam not called\n", __func__);
+        return -EINVAL;
+    }
+
+    payload = &tlv->tlv[0];
+    tlv_size = tlv->length;
+
+    if (tlv_size < pcm_adi->get_param_info[pcm_idx].get_param_payload_size) {
+        AGM_LOGE("%s: Buffer size less than expected\n", __func__);
+        return -EINVAL;
+    }
+
+    memcpy(payload, pcm_adi->get_param_info[pcm_idx].get_param_payload,
+        pcm_adi->get_param_info[pcm_idx].get_param_payload_size);
+    ret = agm_get_params_from_acdb_tunnel(payload, &tlv_size);
+
+    if (ret)
+        AGM_LOGE("%s: failed err %d for %s\n", __func__, ret, ctl->name);
+
+    free(pcm_adi->get_param_info[pcm_idx].get_param_payload);
+    pcm_adi->get_param_info[pcm_idx].get_param_payload = NULL;
+    pcm_adi->get_param_info[pcm_idx].get_param_payload_size = 0;
+
+    return ret;
+}
+
+static int amp_pcm_get_acdb_tunnel_put(struct mixer_plugin *plugin,
+                struct snd_control *ctl, struct snd_ctl_tlv *tlv)
+{
+    struct amp_dev_info *pcm_adi = ctl->private_data;
+    int pcm_idx = ctl->private_value;
+    void *payload;
+
+    if (pcm_adi->get_param_info[pcm_idx].get_param_payload) {
+        free(pcm_adi->get_param_info[pcm_idx].get_param_payload);
+        pcm_adi->get_param_info[pcm_idx].get_param_payload = NULL;
+    }
+    payload = &tlv->tlv[0];
+
+    pcm_adi->get_param_info[pcm_idx].get_param_payload_size = tlv->length;
+    pcm_adi->get_param_info[pcm_idx].get_param_payload =
+        calloc(1, pcm_adi->get_param_info[pcm_idx].get_param_payload_size);
+    if (!pcm_adi->get_param_info[pcm_idx].get_param_payload)
+        return -ENOMEM;
+
+    memcpy(pcm_adi->get_param_info[pcm_idx].get_param_payload, payload,
+        pcm_adi->get_param_info[pcm_idx].get_param_payload_size);
+
+    return 0;
+}
+
+
 static int amp_pcm_set_param_get(struct mixer_plugin *plugin __unused,
                 struct snd_control *ctl __unused, struct snd_ctl_tlv *ev __unused)
 {
@@ -1417,6 +1483,7 @@ static int amp_pcm_get_param_get(struct mixer_plugin *plugin __unused,
     free(pcm_adi->get_param_info[idx].get_param_payload);
     pcm_adi->get_param_info[idx].get_param_payload = NULL;
     pcm_adi->get_param_info[idx].get_param_payload_size = 0;
+    errno = ret;
     return ret;
 }
 
@@ -1612,26 +1679,6 @@ static int amp_pcm_write_datapath_params_put(struct mixer_plugin *plugin,
     return ret;
 }
 
-/* Dummy implementation for flush_get */
-static int amp_pcm_flush_get(struct mixer_plugin *plugin __unused,
-                struct snd_control *ctl __unused, struct snd_ctl_elem_value *ev __unused)
-{
-    return 0;
-}
-
-static int amp_pcm_flush_put(struct mixer_plugin *plugin,
-                struct snd_control *ctl, struct snd_ctl_elem_value *ev)
-{
-    uint32_t pcm_idx = ctl->private_value;
-    bool flush = !!(ev->value.integer.value[0]);
-    int ret = 0;
-
-    if (flush)
-        ret = agm_sessionid_flush(pcm_idx);
-
-    return ret;
-}
-
 /* 512 max bytes for non-tlv controls, reserving 16 for future use */
 static struct snd_value_bytes pcm_calibration_bytes =
     SND_VALUE_BYTES(512 - 16);
@@ -1649,6 +1696,8 @@ static struct snd_value_tlv_bytes pcm_setparamtagacdb_bytes =
     SND_VALUE_TLV_BYTES(256 * 1024, amp_pcm_set_param_get, amp_pcm_set_param_put);
 static struct snd_value_tlv_bytes pcm_setacdbtunnel_bytes =
     SND_VALUE_TLV_BYTES(256 * 1024, amp_pcm_set_acdb_tunnel_get, amp_pcm_set_acdb_tunnel_put);
+static struct snd_value_tlv_bytes pcm_getacdbtunnel_bytes =
+    SND_VALUE_TLV_BYTES(256 * 1024, amp_pcm_get_acdb_tunnel_get, amp_pcm_get_acdb_tunnel_put);
 static struct snd_value_tlv_bytes pcm_setparam_bytes =
     SND_VALUE_TLV_BYTES(512 * 1024, amp_pcm_set_param_get, amp_pcm_set_param_put);
 static struct snd_value_tlv_bytes pcm_getparam_bytes =
@@ -1665,9 +1714,6 @@ static struct snd_value_int media_fmt_int =
 
 static struct snd_value_int group_media_fmt_int =
     SND_VALUE_INTEGER(5, 0, 384000, 1);
-
-static struct snd_value_int flush_param_int =
-    SND_VALUE_INTEGER(1, 0, 1, 1);
 
 static struct snd_value_tlv_bytes be_setparam_bytes =
     SND_VALUE_TLV_BYTES(64 * 1024, amp_be_set_param_get, amp_be_set_param_put);
@@ -1891,20 +1937,6 @@ static void amp_create_pcm_write_with_metadata_ctl(struct amp_priv *amp_priv,
             pval, pdata);
 }
 
-static void amp_create_pcm_flush_ctl(struct amp_priv *amp_priv,
-    char *name, int ctl_idx, int pval, void *pdata)
-{
-    struct snd_control *ctl = AMP_PRIV_GET_CTL_PTR(amp_priv, ctl_idx);
-    char *ctl_name = AMP_PRIV_GET_CTL_NAME_PTR(amp_priv, ctl_idx);
-
-    snprintf(ctl_name, AIF_NAME_MAX_LEN + 16, "%s %s",
-            name, amp_pcm_rx_ctl_names[PCM_RX_CTL_NAME_FLUSH]);
-
-    INIT_SND_CONTROL_INTEGER(ctl, ctl_name, amp_pcm_flush_get,
-            amp_pcm_flush_put, flush_param_int, pval, pdata);
-
-}
-
 /* static mixer control for ACDB parameter set */
 static void amp_create_acdb_tunnel_set_ctl(struct amp_priv *amp_priv,
                 int ctl_idx, int pval, void *pdata)
@@ -1915,6 +1947,17 @@ static void amp_create_acdb_tunnel_set_ctl(struct amp_priv *amp_priv,
             static_acdb_ctl_name_extn[STATIC_CTL_SET_ACDB_TUNNEL],
             pcm_setacdbtunnel_bytes, pval, pdata);
 }
+
+static void amp_create_acdb_tunnel_get_ctl(struct amp_priv *amp_priv,
+            int ctl_idx, int pval, void *pdata)
+{
+    struct snd_control *ctl = AMP_PRIV_GET_CTL_PTR(amp_priv, ctl_idx);
+
+    INIT_SND_CONTROL_TLV_BYTES(ctl,
+            static_acdb_ctl_name_extn[STATIC_CTL_GET_ACDB_TUNNEL],
+            pcm_getacdbtunnel_bytes, pval, pdata);
+}
+
 
 /* BE related mixer control creations here */
 static void amp_create_metadata_ctl(struct amp_priv *amp_priv,
@@ -2098,8 +2141,6 @@ static int amp_form_rx_pcm_ctls(struct amp_priv *amp_priv, int *ctl_idx)
                         &be_tx_adi->dev_enum, idx, rx_adi);
         amp_create_pcm_write_with_metadata_ctl(amp_priv, name, (*ctl_idx)++,
                         idx, rx_adi);
-        amp_create_pcm_flush_ctl(amp_priv, name, (*ctl_idx)++,
-                        idx, rx_adi);
     }
 
     return 0;
@@ -2139,8 +2180,16 @@ static int amp_form_pcm_ctls(struct amp_priv *amp_priv, int ctl_idx, int ctl_cnt
 static int amp_form_acdb_ctls(struct amp_priv *amp_priv, int ctl_idx)
 {
     struct amp_dev_info *acdb_adi = &amp_priv->acdb_tunnels;
+    acdb_adi->get_param_info =
+        (struct amp_get_param_info *)calloc(acdb_adi->count,
+        sizeof(struct amp_get_param_info));
 
-    amp_create_acdb_tunnel_set_ctl(amp_priv, ctl_idx, acdb_adi->idx_arr[0],
+    if (!acdb_adi->get_param_info)
+        return -ENOMEM;
+
+    amp_create_acdb_tunnel_set_ctl(amp_priv, ctl_idx++, acdb_adi->idx_arr[0],
+                                    acdb_adi);
+    amp_create_acdb_tunnel_get_ctl(amp_priv, ctl_idx, acdb_adi->idx_arr[1],
                                     acdb_adi);
 
     return 0;
@@ -2294,8 +2343,8 @@ MIXER_PLUGIN_OPEN_FN(agm_mixer_plugin)
     total_ctl_cnt += be_grp_ctl_cnt;
     pcm_ctl_cnt = amp_get_pcm_ctl_count(amp_priv);
     total_ctl_cnt += pcm_ctl_cnt;
-    /* add one static mixer control for acdb param set */
-    total_ctl_cnt += 1;
+    /* add two static mixer control for acdb param set and get*/
+    total_ctl_cnt += 2;
     /*
      * Create the controls to be registered
      * When changing this code, be careful to make sure to create

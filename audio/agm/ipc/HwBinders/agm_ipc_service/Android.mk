@@ -8,6 +8,7 @@ LOCAL_MODULE_OWNER  := qti
 LOCAL_VENDOR_MODULE := true
 
 LOCAL_CFLAGS        += -v -Wall
+LOCAL_CFLAGS        += -D_ANDROID_
 LOCAL_C_INCLUDES    := $(call project-path-for,qcom-audio)/agm/ipc/HwBinders/agm_ipc_client/
 LOCAL_SRC_FILES     := src/agm_server_wrapper.cpp
 
@@ -22,14 +23,15 @@ LOCAL_SHARED_LIBRARIES := \
     libbase \
     libar-gsl \
     vendor.qti.hardware.AGMIPC@1.0 \
+    libutilscallstack \
     libagm
-
-include $(BUILD_SHARED_LIBRARY)
-
-endif
 
 ifeq ($(strip $(AUDIO_FEATURE_ENABLED_AGM_HIDL)),true)
   LOCAL_CFLAGS += -DAGM_HIDL_ENABLED
+endif
+
+include $(BUILD_SHARED_LIBRARY)
+
 endif
 
 ifneq ($(strip $(AUDIO_FEATURE_ENABLED_AGM_HIDL)),true)
@@ -40,8 +42,6 @@ LOCAL_INIT_RC              := vendor.qti.hardware.AGMIPC@1.0-service.rc
 LOCAL_VENDOR_MODULE        := true
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_MODULE_OWNER         := qti
-
-LOCAL_HEADER_LIBRARIES := libagm_headers
 
 LOCAL_C_INCLUDES           := $(call project-path-for,qcom-audio)/agm/ipc/HwBinders/agm_ipc_client/
 LOCAL_SRC_FILES            := src/service.cpp

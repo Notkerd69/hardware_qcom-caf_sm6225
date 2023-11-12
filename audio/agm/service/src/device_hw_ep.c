@@ -178,6 +178,8 @@ static int populate_hw_ep_intf(hw_ep_info_t *hw_ep_info, char *intf)
         hw_ep_info->intf = AUDIOSS_DMA;
     else if (!strcmp(intf, "PCM_DUMMY"))
         hw_ep_info->intf = PCM_DUMMY;
+    else if (!strcmp(intf, "BTFM_PROXY"))
+        hw_ep_info->intf = BTFM_PROXY;
     else {
         AGM_LOGE("No matching intf found\n");
         return -EINVAL;
@@ -232,7 +234,7 @@ static int populate_audioss_dma_ep_info(hw_ep_info_t *hw_ep_info, char *value)
 
 }
 
-static int populate_pcm_rt_proxy_ep_info(hw_ep_info_t *hw_ep_info, char *value)
+static int populate_btfm_rt_proxy_ep_info(hw_ep_info_t *hw_ep_info, char *value)
 {
     char arg[DEV_ARG_SIZE] = {0};
     struct hw_ep_pcm_rt_proxy_config *pcm_rt_proxy_config;
@@ -337,6 +339,8 @@ static int populate_cdc_dma_i2s_tdm_pcm_ep_info(hw_ep_info_t *hw_ep_info, char *
         cdc_dma_i2s_tdm_config->lpaif_type = LPAIF_AXI;
     else if (!strcmp(lpaif_type, "LPAIF_AUD"))
         cdc_dma_i2s_tdm_config->lpaif_type = LPAIF_AUD;
+    else if (!strcmp(lpaif_type, "LPAIF_SDR"))
+        cdc_dma_i2s_tdm_config->lpaif_type = LPAIF_SDR;
     else {
         AGM_LOGE("No matching lpaif_type found\n");
         return -EINVAL;
@@ -408,7 +412,8 @@ int populate_device_hw_ep_info(struct device_obj *dev_obj)
     case USB_AUDIO:
         return populate_slim_dp_usb_ep_info(&dev_obj->hw_ep_info, value);
     case PCM_RT_PROXY:
-        return populate_pcm_rt_proxy_ep_info(&dev_obj->hw_ep_info, value);
+    case BTFM_PROXY:
+        return populate_btfm_rt_proxy_ep_info(&dev_obj->hw_ep_info, value);
     case AUDIOSS_DMA:
         return populate_audioss_dma_ep_info(&dev_obj->hw_ep_info, value);
     case PCM_DUMMY:

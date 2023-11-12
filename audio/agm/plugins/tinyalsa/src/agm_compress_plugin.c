@@ -25,6 +25,39 @@
 ** WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 ** OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 ** IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+**
+** Changes from Qualcomm Innovation Center are provided under the following license:
+** Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+**
+** Redistribution and use in source and binary forms, with or without
+** modification, are permitted (subject to the limitations in the
+** disclaimer below) provided that the following conditions are met:
+**
+**   * Redistributions of source code must retain the above copyright
+**     notice, this list of conditions and the following disclaimer.
+**
+**   * Redistributions in binary form must reproduce the above
+**     copyright notice, this list of conditions and the following
+**     disclaimer in the documentation and/or other materials provided
+**     with the distribution.
+**
+**   * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+**     contributors may be used to endorse or promote products derived
+**     from this software without specific prior written permission.
+**
+** NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+** GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+** HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+** WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+** MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+** IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+** ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+** DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+** GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+** INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+** IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+** OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+** IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 **/
 #define LOG_TAG "PLUGIN: compress"
 
@@ -378,75 +411,77 @@ int agm_session_update_codec_config(struct agm_compress_priv *priv,
     media_cfg->channels = params->codec.ch_out;
 
     if (sess_cfg->dir == RX) {
-       switch (params->codec.id) {
-       case SND_AUDIOCODEC_MP3:
-           media_cfg->format = AGM_FORMAT_MP3;
-           break;
-       case SND_AUDIOCODEC_AAC:
-           media_cfg->format = AGM_FORMAT_AAC;
-           if (params->codec.format == SND_AUDIOSTREAMFORMAT_MP4LATM)
-              sess_cfg->codec.aac_dec.aac_fmt_flag = 0x04;
-           else if (params->codec.format == SND_AUDIOSTREAMFORMAT_ADIF)
-              sess_cfg->codec.aac_dec.aac_fmt_flag = 0x02;
-           else if (params->codec.format == SND_AUDIOSTREAMFORMAT_MP4ADTS)
-              sess_cfg->codec.aac_dec.aac_fmt_flag = 0x00;
-           else
-              sess_cfg->codec.aac_dec.aac_fmt_flag = 0x03;
-           sess_cfg->codec.aac_dec.num_channels = params->codec.ch_in;
-           sess_cfg->codec.aac_dec.sample_rate = media_cfg->rate;
-           break;
-       case SND_AUDIOCODEC_FLAC:
-           media_cfg->format = AGM_FORMAT_FLAC;
-           sess_cfg->codec.flac_dec.num_channels = params->codec.ch_in;
-           sess_cfg->codec.flac_dec.sample_rate = media_cfg->rate;
-           break;
+        switch (params->codec.id) {
+        case SND_AUDIOCODEC_MP3:
+            media_cfg->format = AGM_FORMAT_MP3;
+            break;
+        case SND_AUDIOCODEC_AAC:
+            media_cfg->format = AGM_FORMAT_AAC;
+            if (params->codec.format == SND_AUDIOSTREAMFORMAT_MP4LATM)
+                sess_cfg->codec.aac_dec.aac_fmt_flag = 0x04;
+            else if (params->codec.format == SND_AUDIOSTREAMFORMAT_ADIF)
+                sess_cfg->codec.aac_dec.aac_fmt_flag = 0x02;
+            else if (params->codec.format == SND_AUDIOSTREAMFORMAT_MP4ADTS)
+                sess_cfg->codec.aac_dec.aac_fmt_flag = 0x00;
+            else
+                sess_cfg->codec.aac_dec.aac_fmt_flag = 0x03;
+            sess_cfg->codec.aac_dec.num_channels = params->codec.ch_in;
+            sess_cfg->codec.aac_dec.sample_rate = media_cfg->rate;
+            break;
+        case SND_AUDIOCODEC_FLAC:
+            media_cfg->format = AGM_FORMAT_FLAC;
+            sess_cfg->codec.flac_dec.num_channels = params->codec.ch_in;
+            sess_cfg->codec.flac_dec.sample_rate = media_cfg->rate;
+            break;
     #ifdef SND_AUDIOCODEC_ALAC
-       case SND_AUDIOCODEC_ALAC:
-           media_cfg->format = AGM_FORMAT_ALAC;
-           sess_cfg->codec.alac_dec.num_channels = params->codec.ch_in;
-           sess_cfg->codec.alac_dec.sample_rate = media_cfg->rate;
-           break;
+        case SND_AUDIOCODEC_ALAC:
+            media_cfg->format = AGM_FORMAT_ALAC;
+            sess_cfg->codec.alac_dec.num_channels = params->codec.ch_in;
+            sess_cfg->codec.alac_dec.sample_rate = media_cfg->rate;
+            break;
     #endif
     #ifdef SND_AUDIOCODEC_APE
-       case SND_AUDIOCODEC_APE:
-           media_cfg->format = AGM_FORMAT_APE;
-           sess_cfg->codec.ape_dec.num_channels = params->codec.ch_in;
-           sess_cfg->codec.ape_dec.sample_rate = media_cfg->rate;
-           break;
+        case SND_AUDIOCODEC_APE:
+            media_cfg->format = AGM_FORMAT_APE;
+            sess_cfg->codec.ape_dec.num_channels = params->codec.ch_in;
+            sess_cfg->codec.ape_dec.sample_rate = media_cfg->rate;
+            break;
     #endif
-       case SND_AUDIOCODEC_WMA:
+        case SND_AUDIOCODEC_WMA:
     #ifdef SND_AUDIOPROFILE_WMA9_LOSSLESS
-          if ((params->codec.profile == SND_AUDIOPROFILE_WMA9_PRO) ||
-             (params->codec.profile == SND_AUDIOPROFILE_WMA9_LOSSLESS) ||
-             (params->codec.profile == SND_AUDIOPROFILE_WMA10_LOSSLESS)) {
+            if ((params->codec.profile == SND_AUDIOPROFILE_WMA9_PRO) ||
+                (params->codec.profile == SND_AUDIOPROFILE_WMA9_LOSSLESS) ||
+                (params->codec.profile == SND_AUDIOPROFILE_WMA10_LOSSLESS)) {
     #else
-          if ((params->codec.profile == SND_AUDIOMODE_WMAPRO_LEVELM0) ||
-             (params->codec.profile == SND_AUDIOMODE_WMAPRO_LEVELM1) ||
-             (params->codec.profile == SND_AUDIOMODE_WMAPRO_LEVELM2)) {
+            if ((params->codec.profile == SND_AUDIOMODE_WMAPRO_LEVELM0) ||
+                (params->codec.profile == SND_AUDIOMODE_WMAPRO_LEVELM1) ||
+                (params->codec.profile == SND_AUDIOMODE_WMAPRO_LEVELM2)) {
     #endif
-             media_cfg->format = AGM_FORMAT_WMAPRO;
-             sess_cfg->codec.wmapro_dec.fmt_tag = params->codec.format;
-             sess_cfg->codec.wmapro_dec.num_channels = params->codec.ch_in;
-             sess_cfg->codec.wmapro_dec.sample_rate = media_cfg->rate;
-          } else {
-             media_cfg->format = AGM_FORMAT_WMASTD;
-             sess_cfg->codec.wma_dec.fmt_tag = params->codec.format;
-             sess_cfg->codec.wma_dec.num_channels = params->codec.ch_in;
-             sess_cfg->codec.wma_dec.sample_rate = media_cfg->rate;
-          }
-           break;
-       case SND_AUDIOCODEC_VORBIS:
-           media_cfg->format = AGM_FORMAT_VORBIS;
-           break;
-       default:
-           break;
-       }
+                media_cfg->format = AGM_FORMAT_WMAPRO;
+                sess_cfg->codec.wmapro_dec.fmt_tag = params->codec.format;
+                sess_cfg->codec.wmapro_dec.num_channels = params->codec.ch_in;
+                sess_cfg->codec.wmapro_dec.sample_rate = media_cfg->rate;
+            } else {
+                media_cfg->format = AGM_FORMAT_WMASTD;
+                sess_cfg->codec.wma_dec.fmt_tag = params->codec.format;
+                sess_cfg->codec.wma_dec.num_channels = params->codec.ch_in;
+                sess_cfg->codec.wma_dec.sample_rate = media_cfg->rate;
+            }
+            break;
+        case SND_AUDIOCODEC_VORBIS:
+            media_cfg->format = AGM_FORMAT_VORBIS;
+            break;
+        default:
+            break;
+        }
     }
 
+    // capture path
     if (sess_cfg->dir == TX) {
         switch (params->codec.id) {
         case SND_AUDIOCODEC_AAC:
             media_cfg->format = AGM_FORMAT_AAC;
+
             sess_cfg->codec.aac_enc.aac_bit_rate = params->codec.bit_rate;
             sess_cfg->codec.aac_enc.enc_cfg.aac_enc_mode =
                 params->codec.profile;
@@ -459,6 +494,7 @@ int agm_session_update_codec_config(struct agm_compress_priv *priv,
                 sess_cfg->codec.aac_enc.enc_cfg.aac_fmt_flag,
                 sess_cfg->codec.aac_enc.aac_bit_rate);
             break;
+
         default:
             break;
         }
@@ -491,6 +527,7 @@ int agm_compress_set_params(struct compress_plugin *plugin,
     priv->total_buf_size = buf_cfg->size * buf_cfg->count;
 
     sess_cfg = &priv->session_config;
+
     if (sess_cfg->dir == RX)
         priv->bytes_avail = priv->total_buf_size;
     else
@@ -498,10 +535,12 @@ int agm_compress_set_params(struct compress_plugin *plugin,
 
     sess_cfg->start_threshold = 0;
     sess_cfg->stop_threshold = 0;
+
     if (sess_cfg->dir == RX)
         sess_cfg->data_mode = AGM_DATA_NON_BLOCKING;
     else
         sess_cfg->data_mode = AGM_DATA_BLOCKING;
+
     /* Populate each codec format specific params */
     ret = agm_session_update_codec_config(priv, params);
     if (ret)
@@ -554,6 +593,7 @@ static int agm_compress_start(struct compress_plugin *plugin)
     ret = agm_get_session_handle(priv, &handle);
     if (ret)
         return ret;
+
     /**
      * Unlike playback, for capture case, call
      * agm_session_prepare it in start.
@@ -790,10 +830,11 @@ void agm_compress_close(struct compress_plugin *plugin)
 
     if (priv->session_config.dir == RX) {
         ret = agm_session_register_cb(priv->session_id, NULL,
-                                  AGM_EVENT_DATA_PATH, plugin);
+                                    AGM_EVENT_DATA_PATH, plugin);
         ret = agm_session_register_cb(priv->session_id, NULL,
-                                  AGM_EVENT_MODULE, plugin);
+                                    AGM_EVENT_MODULE, plugin);
     }
+
     ret = agm_session_close(handle);
     if (ret)
         AGM_LOGE("%s: agm_session_close failed \n", __func__);
@@ -849,6 +890,7 @@ struct compress_plugin_ops agm_compress_ops = {
 static int agm_populate_codec_caps(struct agm_compress_priv *priv)
 {
     int codec_count = 0;
+
     if (priv->session_config.dir == RX)
         priv->compr_cap.direction = SND_COMPRESS_PLAYBACK;
     else
@@ -954,6 +996,7 @@ COMPRESS_PLUGIN_OPEN_FN(agm_compress_plugin)
         errno = ret;
         goto err_card_put;
     }
+
     // TODO introduce nonblock flag here
     // instead of checking with direction and then registering callback
     // use nonblock flag and then register call back
@@ -972,6 +1015,7 @@ COMPRESS_PLUGIN_OPEN_FN(agm_compress_plugin)
         if (ret)
             goto err_sess_cls;
     }
+
     agm_populate_codec_caps(priv);
     priv->handle = handle;
     *plugin = agm_compress_plugin;
@@ -1003,6 +1047,7 @@ void agm_session_update_codec_options(struct agm_session_config *sess_cfg,
 
     union snd_codec_options *copt = &params->codec.options;
 
+    // playback
     if (sess_cfg->dir == RX) {
         switch (params->codec.id) {
         case SND_AUDIOCODEC_AAC:
@@ -1048,7 +1093,7 @@ void agm_session_update_codec_options(struct agm_session_config *sess_cfg,
                 (params->codec.profile == SND_AUDIOPROFILE_WMA9_LOSSLESS) ||
                 (params->codec.profile == SND_AUDIOPROFILE_WMA10_LOSSLESS)) {
     #else
-             if ((params->codec.profile == SND_AUDIOMODE_WMAPRO_LEVELM0) ||
+            if ((params->codec.profile == SND_AUDIOMODE_WMAPRO_LEVELM0) ||
                 (params->codec.profile == SND_AUDIOMODE_WMAPRO_LEVELM1) ||
                 (params->codec.profile == SND_AUDIOMODE_WMAPRO_LEVELM2)) {
     #endif
@@ -1067,16 +1112,19 @@ void agm_session_update_codec_options(struct agm_session_config *sess_cfg,
                 sess_cfg->codec.wma_dec.enc_options = copt->generic.reserved[4];
             }
             break;
-            default:
+        default:
             break;
-          }
-       }
-       if (sess_cfg->dir == TX) {
-           switch (params->codec.id) {
-           case SND_AUDIOCODEC_AAC:
-                break;
-           default:
-                break;
-          }
-       }
-  }
+        }
+    }
+
+    // capture
+    if (sess_cfg->dir == TX) {
+        switch (params->codec.id) {
+        case SND_AUDIOCODEC_AAC:
+            break;
+
+        default:
+            break;
+        }
+    }
+}

@@ -25,6 +25,10 @@
 ** WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 ** OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 ** IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+**
+** Changes from Qualcomm Innovation Center are provided under the following license:
+** Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+** SPDX-License-Identifier: BSD-3-Clause-Clear
 **/
 
 #define LOG_TAG "AGM: device"
@@ -33,7 +37,6 @@
 #include <pthread.h>
 #include <sched.h>
 #include <stdio.h>
-#include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -62,9 +65,6 @@
 #define TRUE 1
 #define FALSE 0
 
-#define DEVICE_ENABLE 1
-#define DEVICE_DISABLE 0
-
 #define BUF_SIZE 1024
 #define FILE_PATH_EXTN_MAX_SIZE 80
 #define MAX_RETRY_CNT 20
@@ -82,9 +82,6 @@ static snd_ctl_t *mixer;
 static struct mixer *mixer = NULL;
 #endif
 
-#define SYSFS_FD_PATH "/sys/kernel/aud_dev/state"
-static int sysfs_fd = -1;
-
 #define MAX_BUF_SIZE                 2048
 /**
   * The maximum period bytes for dummy dai is 8192 bytes.
@@ -98,6 +95,24 @@ static int sysfs_fd = -1;
 #define DEFAULT_PERIOD_COUNT         2
 
 #define MAX_USR_INPUT 9
+
+#define AGM_PCM_RATE_5512  (5512)
+#define AGM_PCM_RATE_8000  (8000)
+#define AGM_PCM_RATE_11025 (11025)
+#define AGM_PCM_RATE_16000 (16000)
+#define AGM_PCM_RATE_22050 (2205)
+#define AGM_PCM_RATE_32000 (32000)
+#define AGM_PCM_RATE_44100 (44100)
+#define AGM_PCM_RATE_48000 (48000)
+#define AGM_PCM_RATE_64000 (64000)
+#define AGM_PCM_RATE_88200 (88200)
+#define AGM_PCM_RATE_96000 (96000)
+#define AGM_PCM_RATE_176400 (176400)
+#define AGM_PCM_RATE_192000 (192000)
+#define AGM_PCM_RATE_352800 (352800)
+#define AGM_PCM_RATE_384000 (384000)
+
+#define AGM_DEFAULT_PCM_RATE (AGM_PCM_RATE_48000)
 
 /** Sound card state */
 typedef enum snd_card_status_t {
@@ -129,36 +144,6 @@ int get_pcm_bits_per_sample(enum agm_media_format fmt_id)
               break;
      }
      return bits_per_sample;
-}
-
-static void update_sysfs_fd (int8_t pcm_id, int8_t state)
-{
-    char buf[MAX_USR_INPUT]={0};
-    snprintf(buf, MAX_USR_INPUT,"%d %d", pcm_id, state);
-    if (sysfs_fd >= 0)
-        write(sysfs_fd, buf, MAX_USR_INPUT);
-    else {
-        /*AGM service and sysfs file creation are async events.
-         *Also when the syfs node is first created the default
-         *user attribute for the sysfs file is root.
-         *To change the same we need to execute a command from
-         *init scripts, which again are async and there is no
-         *deterministic way of scheduling this command only after
-         *the sysfs node is created. And all this should happen before
-         *we try to open the file from agm context, otherwise the open
-         *call would fail with permission denied error.
-         *Hence we try to open the file first time when we access it instead
-         *of doing it from agm_init.
-         *This gives the system enough time for the file attributes to
-         *be changed.
-         */
-        sysfs_fd = open(SYSFS_FD_PATH, O_WRONLY);
-        if (sysfs_fd >= 0) {
-            write(sysfs_fd, buf, MAX_USR_INPUT);
-        } else {
-            AGM_LOGE("invalid file handle\n");
-        }
-    }
 }
 
 int device_get_snd_card_id()
@@ -198,6 +183,7 @@ snd_pcm_format_t agm_to_alsa_format(enum agm_media_format format)
         return SND_PCM_FORMAT_S16_LE;
     };
 }
+
 
 int device_open(struct device_obj *dev_obj)
 {
@@ -277,8 +263,6 @@ int device_open(struct device_obj *dev_obj)
                  __func__, pcm_name, rate, channels, format);
         goto done;
     }
-
-    update_sysfs_fd(obj->pcm_id, DEVICE_ENABLE);
     obj->pcm = pcm;
     obj->state = DEV_OPENED;
     obj->refcnt.open++;
@@ -303,6 +287,30 @@ enum pcm_format agm_to_pcm_format(enum agm_media_format format)
     default:
     case AGM_FORMAT_PCM_S16_LE:
         return PCM_FORMAT_S16_LE;
+    };
+}
+
+bool device_pcm_is_rate_supported(unsigned int rate)
+{
+    switch(rate) {
+    case AGM_PCM_RATE_5512:
+    case AGM_PCM_RATE_8000:
+    case AGM_PCM_RATE_11025:
+    case AGM_PCM_RATE_16000:
+    case AGM_PCM_RATE_22050:
+    case AGM_PCM_RATE_32000:
+    case AGM_PCM_RATE_44100:
+    case AGM_PCM_RATE_48000:
+    case AGM_PCM_RATE_64000:
+    case AGM_PCM_RATE_88200:
+    case AGM_PCM_RATE_96000:
+    case AGM_PCM_RATE_176400:
+    case AGM_PCM_RATE_192000:
+    case AGM_PCM_RATE_352800:
+    case AGM_PCM_RATE_384000:
+        return true;
+    default:
+        return false;
     };
 }
 
@@ -344,6 +352,12 @@ int device_open(struct device_obj *dev_obj)
 
     config.channels = media_config->channels;
     config.rate = media_config->rate;
+    if (!device_pcm_is_rate_supported(config.rate)) {
+        AGM_LOGD("Unsupported PCM rate %d changing to default rate %d\n",
+              config.rate, AGM_DEFAULT_PCM_RATE);
+        config.rate = AGM_DEFAULT_PCM_RATE;
+    }
+
     config.format = agm_to_pcm_format(media_config->format);
     config.period_size = (MAX_PERIOD_BUFFER)/(config.channels *
                           (get_pcm_bits_per_sample(media_config->format)/8));
@@ -363,7 +377,6 @@ int device_open(struct device_obj *dev_obj)
         ret = -EIO;
         goto done;
     }
-    update_sysfs_fd(obj->pcm_id, DEVICE_ENABLE);
     obj->pcm = pcm;
     obj->state = DEV_OPENED;
     obj->refcnt.open++;
@@ -537,7 +550,6 @@ int device_close(struct device_obj *dev_obj)
     }
 
     if (--obj->refcnt.open == 0) {
-        update_sysfs_fd(obj->pcm_id, DEVICE_DISABLE);
 #ifdef DEVICE_USES_ALSALIB
         ret = snd_pcm_close(obj->pcm);
 #else
@@ -688,11 +700,13 @@ int device_set_metadata(struct device_obj *dev_obj, uint32_t size,
 {
    int ret = 0;
 
-   AGM_LOGI("Setting device metadata for %s\n", dev_obj->name);
    pthread_mutex_lock(&dev_obj->lock);
    metadata_free(&dev_obj->metadata);
    ret = metadata_copy(&(dev_obj->metadata), size, metadata);
+#ifdef AGM_DEBUG_METADATA
+   AGM_LOGI("Setting device metadata for %s\n", dev_obj->name);
    metadata_print(&(dev_obj->metadata));
+#endif
    pthread_mutex_unlock(&dev_obj->lock);
 
    return ret;
@@ -1046,7 +1060,7 @@ static int wait_for_snd_card_to_online()
     /* maximum wait period = (MAX_RETRY * RETRY_INTERVAL_US) micro-seconds */
     do {
         if ((fd = open(SNDCARD_PATH, O_RDWR)) < 0) {
-            AGM_LOGE(LOG_TAG, "Failed to open snd sysfs node, will retry for %d times ...", (retries - 1));
+            AGM_LOGE("Failed to open snd sysfs node, will retry for %d times ...", (retries - 1));
         } else {
             memset(buf , 0 ,sizeof(buf));
             lseek(fd,0L,SEEK_SET);
@@ -1059,7 +1073,7 @@ static int wait_for_snd_card_to_online()
             sscanf(buf , "%d", &card_status);
 
             if (card_status == SND_CARD_STATUS_ONLINE) {
-                AGM_LOGV(LOG_TAG, "snd sysfs node open successful");
+                AGM_LOGV("snd sysfs node open successful");
                 break;
             }
         }
@@ -1068,7 +1082,7 @@ static int wait_for_snd_card_to_online()
     } while ( retries > 0);
 
     if (0 == retries) {
-        AGM_LOGE(LOG_TAG, "Failed to open snd sysfs node, exiting ... ");
+        AGM_LOGE("Failed to open snd sysfs node, exiting ... ");
         ret = -EIO;
     }
 
@@ -1122,9 +1136,6 @@ void device_deinit()
 
     list_remove(&device_group_data_list);
     list_remove(&device_list);
-    if (sysfs_fd >= 0)
-        close(sysfs_fd);
-    sysfs_fd = -1;
 
 #ifdef DEVICE_USES_ALSALIB
     if (mixer)
@@ -1135,7 +1146,8 @@ void device_deinit()
 #endif
 }
 
-static void split_snd_card_name(const char * in_snd_card_name, char* file_path_extn)
+static void split_snd_card_name(const char * in_snd_card_name, char* file_path_extn,
+                                char* file_path_extn_wo_variant)
 {
     /* Sound card name follows below mentioned convention:
        <target name>-<form factor>-<variant>-snd-card.
@@ -1143,6 +1155,7 @@ static void split_snd_card_name(const char * in_snd_card_name, char* file_path_e
     char *snd_card_name = NULL;
     char *tmp = NULL;
     char *card_sub_str = NULL;
+    int token_count = 0;
 
     snd_card_name = strdup(in_snd_card_name);
     if (snd_card_name == NULL) {
@@ -1158,11 +1171,14 @@ static void split_snd_card_name(const char * in_snd_card_name, char* file_path_e
 
     while ((card_sub_str = strtok_r(NULL, "-", &tmp))) {
         if (strncmp(card_sub_str, "snd", strlen("snd"))) {
+            if(token_count == 1)
+               strlcpy(file_path_extn_wo_variant, file_path_extn, FILE_PATH_EXTN_MAX_SIZE);
             strlcat(file_path_extn, "_", FILE_PATH_EXTN_MAX_SIZE);
             strlcat(file_path_extn, card_sub_str, FILE_PATH_EXTN_MAX_SIZE);
         }
         else
             break;
+        token_count++;
     }
 
 done:
@@ -1259,7 +1275,7 @@ done:
     return is_updated;
 }
 
-bool get_file_path_extn(char* file_path_extn)
+bool get_file_path_extn(char* file_path_extn, char* file_path_extn_wo_variant)
 {
     int snd_card_found = false, retry = 0;
     char snd_card_name[FILE_PATH_EXTN_MAX_SIZE];
@@ -1268,7 +1284,7 @@ bool get_file_path_extn(char* file_path_extn)
         snd_card_found = update_snd_card_info(snd_card_name);
 
         if (snd_card_found) {
-            split_snd_card_name(snd_card_name, file_path_extn);
+            split_snd_card_name(snd_card_name, file_path_extn, file_path_extn_wo_variant);
             AGM_LOGV("Found Codec sound card");
             break;
         } else {

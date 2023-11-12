@@ -1,6 +1,5 @@
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -28,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 #define LOG_TAG "AGM: session"
@@ -1085,7 +1084,7 @@ static int session_start(struct session_obj *sess_obj)
 
         pthread_mutex_lock(&hwep_lock);
 
-        //For Slimbus EP - First configure the slave ports via device_prepare/start
+        //For Slimbus/CP EP - First configure the slave ports via device_prepare/start
         //and then start the master side via graph_start.
         list_for_each(node, &sess_obj->aif_pool) {
             aif_obj = node_to_item(node, struct aif, node);
@@ -1094,8 +1093,9 @@ static int session_start(struct session_obj *sess_obj)
                 goto device_stop;
             }
 
-            if (aif_obj->dev_obj->hw_ep_info.intf == SLIMBUS) {
-                AGM_LOGD("configuring device early - for SLIMBUS EPs\n");
+            if ((aif_obj->dev_obj->hw_ep_info.intf == SLIMBUS) ||
+                (aif_obj->dev_obj->hw_ep_info.intf == BTFM_PROXY)) {
+                AGM_LOGD("configuring device early - for SLIMBUS/Connectivity Proxy EPs\n");
                 if (aif_obj->state == AIF_OPENED || aif_obj->state == AIF_STOPPED) {
                     ret = device_prepare(aif_obj->dev_obj);
                     if (ret) {
@@ -1132,9 +1132,11 @@ static int session_start(struct session_obj *sess_obj)
                 goto unwind;
             }
 
-            //Continue/SKIP for SLIMBUS EP as they are started early.
-            if (aif_obj->dev_obj->hw_ep_info.intf == SLIMBUS)
+            //Continue/SKIP for SLIMBUS/Connectivity Proxy EP as they are started early.
+            if ((aif_obj->dev_obj->hw_ep_info.intf == SLIMBUS) ||
+                (aif_obj->dev_obj->hw_ep_info.intf == BTFM_PROXY)) {
                 continue;
+            }
 
             if (aif_obj->state == AIF_OPENED || aif_obj->state == AIF_STOPPED) {
                 ret = device_prepare(aif_obj->dev_obj);
@@ -1304,6 +1306,8 @@ static int session_close(struct session_obj *sess_obj)
                 free(aif_obj->tag_config);
                 aif_obj->tag_config = NULL;
             }
+            list_remove(&aif_obj->node);
+            aif_free(aif_obj);
         }
     }
     pthread_mutex_unlock(&hwep_lock);
@@ -1658,8 +1662,7 @@ int session_dummy_rw_acdb_tunnel(
         return ret;
     }
 
-    if (is_param_set)
-        ret = graph_set_acdb_param(payload);
+    ret = graph_rw_acdb_param(payload, is_param_set);
 
     AGM_LOGD("exit status=%d", ret);
 
@@ -1750,7 +1753,6 @@ int session_obj_set_sess_aif_metadata(struct session_obj *sess_obj,
     int ret = 0;
     struct aif *aif_obj = NULL;
 
-    AGM_LOGI("Setting metadata for sess aif id %d\n", aif_id);
     pthread_mutex_lock(&sess_obj->lock);
     ret = aif_obj_get(sess_obj, aif_id, &aif_obj);
     if (ret) {
@@ -1766,8 +1768,10 @@ int session_obj_set_sess_aif_metadata(struct session_obj *sess_obj,
                   sess_id:%d, aif_id:%d \n",
                   sess_obj->sess_id, aif_obj->aif_id);
     }
+#ifdef AGM_DEBUG_METADATA
+    AGM_LOGI("Setting metadata for sess_id %d, aif id %d\n", sess_obj->sess_id, aif_id);
     metadata_print(&(aif_obj->sess_aif_meta));
-
+#endif
 done:
     pthread_mutex_unlock(&sess_obj->lock);
     AGM_LOGI("Exit");

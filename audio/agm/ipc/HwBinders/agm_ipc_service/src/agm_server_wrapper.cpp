@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -70,6 +70,8 @@
 #include <signal.h>
 #include "gsl_intf.h"
 #include <hwbinder/IPCThreadState.h>
+#include <utils/ProcessCallStack.h>
+#include <cutils/properties.h>
 
 #define MAX_CACHE_SIZE 64
 #define NUM_GKV(x)                     (*((uint32_t *) x))
@@ -117,6 +119,16 @@ void dumpAgmStackTrace(struct agm_dump_info *d_info) {
                  "signal %d (<debuggerd signal>), code -1 "
                  "(SI_QUEUE from pid %d, uid %d)",
                  d_info->signal, d_info->pid, d_info->uid);
+#ifdef _ANDROID_
+        char propValue[PROPERTY_VALUE_MAX];
+        property_get("ro.debuggable", propValue, "0");
+        if(atoi(propValue) == 1) {
+            std::string prefix = "audioserver_" + std::to_string(d_info->pid) + " ";
+            android::ProcessCallStack pcs;
+            pcs.update();
+            pcs.log(LOG_TAG, ANDROID_LOG_FATAL, prefix.c_str());
+        }
+#endif
         if (sigqueue(getpid(), DEBUGGER_SIGNAL, {.sival_int = 0}) < 0) {
             ALOGW("%s: Sending signal %d failed with error %d",
                     __func__, DEBUGGER_SIGNAL, errno);
@@ -192,7 +204,6 @@ void client_death_notifier::serviceDied(uint64_t cookie,
                 session_handle = NULL;
             }
             list_remove(node);
-            handle->clbk_binder->unlinkToDeath(this);
             free(handle);
         }
     }
@@ -655,7 +666,7 @@ Return<void> AGM::ipc_agm_session_get_params(uint32_t session_id,
     int32_t ret = 0;
     hidl_vec<uint8_t> payload_hidl;
 
-    if (buff.size() < size) {
+     if (buff.size() < size) {
         _hidl_cb(-EINVAL, size);
         return Void();
     }
@@ -674,6 +685,34 @@ Return<void> AGM::ipc_agm_session_get_params(uint32_t session_id,
        memcpy(payload_hidl.data(), payload_local, (size_t)size);
 
      _hidl_cb(ret, payload_hidl);
+    free(payload_local);
+    return Void();
+}
+
+Return<void> AGM::ipc_agm_get_params_from_acdb_tunnel(
+                        const hidl_vec<uint8_t>& payload, uint32_t size,
+                        ipc_agm_get_params_from_acdb_tunnel_cb _hidl_cb) {
+    uint8_t * payload_local = NULL;
+    size_t size_local;
+    size_local = (size_t) size;
+    hidl_vec<uint8_t> payload_hidl;
+    if (size_local) {
+        payload_local = (uint8_t *) calloc (1, size_local);
+        if (payload_local == NULL) {
+            ALOGE("%s: Cannot allocate memory for payload_local\n", __func__);
+            _hidl_cb(-ENOMEM, payload_hidl, size);
+            return Void();
+        }
+    }
+
+    memcpy(payload_local, payload.data(), size);
+    int32_t ret = agm_get_params_from_acdb_tunnel(payload_local,
+                                                      &size_local);
+    payload_hidl.resize(size_local);
+    if (payload_local)
+        memcpy(payload_hidl.data(), payload_local, size_local);
+    uint32_t size_hidl = (uint32_t) size_local;
+    _hidl_cb(ret, payload_hidl, size_hidl);
     free(payload_local);
     return Void();
 }
@@ -1046,12 +1085,6 @@ Return<int32_t> AGM::ipc_agm_session_flush(uint64_t hndl) {
     ALOGV("%s called with handle = %llx \n", __func__, (unsigned long long) hndl);
 
     return agm_session_flush(hndl);
-}
-
-Return<int32_t> AGM::ipc_agm_sessionid_flush(uint32_t session_id) {
-    ALOGV("%s called with session id = %d", __func__, session_id);
-
-    return agm_sessionid_flush(session_id);
 }
 
 Return<int32_t> AGM::ipc_agm_session_resume(uint64_t hndl) {
