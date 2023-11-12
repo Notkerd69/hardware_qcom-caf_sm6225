@@ -217,7 +217,7 @@ void play_loopback(unsigned int card, unsigned int p_device, unsigned int c_devi
     struct timespec end;
     struct timespec now;
     struct group_config grp_config;
-    stream_kv = stream_kv ? stream_kv : PCM_RX_LOOPBACK;
+    stream_kv = stream_kv ? stream_kv : PCM_LOOPBACK;
 
     if (!cap_config || !p_config || !capture_intf || !play_intf) {
         printf("%s: %d: Invalid arguments.\n", __func__, __LINE__);
