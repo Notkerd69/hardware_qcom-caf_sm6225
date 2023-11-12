@@ -134,7 +134,9 @@ LOCAL_SRC_FILES:= \
         audio_usb_hal.c
 
 LOCAL_CFLAGS += \
+    -Wno-incompatible-pointer-types-discards-qualifiers \
     -Wno-unused-parameter \
+    -Wno-unused-variable \
 
 LOCAL_SHARED_LIBRARIES := \
      liblog \
